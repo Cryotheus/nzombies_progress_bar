@@ -1,0 +1,16 @@
+{
+	"title"		:	"nZombies Round Progress Bar",
+	"type"		:	"ServerContent",
+	"tags"		:	[ "fun" ],
+	"ignore"	:
+	[
+		"*.bat",
+		"*.gma",
+		"*.pdn",
+		"*.txt",
+		"*.zip",
+		".git*",
+		"license",
+		"readme.md"
+	]
+}
