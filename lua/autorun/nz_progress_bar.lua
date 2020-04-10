@@ -59,6 +59,7 @@ elseif CLIENT then
 	local bar_mat = Material("bar/bloodline_bar.png")
 	local bar_mat_bg = Material("bar/bloodline_bar_back.png")
 	
+	local endless = false
 	local cvars_bar_enabled = 1
 	local cvars_bar_text_enabled = 1
 	local cvars_bar_text_y_pos = 5
@@ -263,11 +264,12 @@ elseif CLIENT then
 	
 	net.Receive("update_prog_bar_killed", function()
 		zombies_killed = net.ReadUInt(16)
-		zombies_killed_text = "zombies killed  " .. zombies_killed .. " / " .. zombies_max
-		progress_percent = zombies_killed / zombies_max
+		zombies_killed_text = "zombies killed  " .. zombies_killed .. " / " .. (endless and "∞" or zombies_max)
+		progress_percent = endless and math.random() or zombies_killed / zombies_max
 	end)
 	
 	net.Receive("update_prog_bar_max", function()
+		endless = zombies_max < 0
 		zombies_max = net.ReadUInt(16)
 		zombies_killed_text = "zombies killed  0 / " .. zombies_max
 	end)
