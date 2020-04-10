@@ -254,7 +254,12 @@ elseif CLIENT then
 	hook.Add("OnScreenSizeChanged", "prog_bar_screen_res_changed_hook", function() scr_h, scr_w = ScrH(), ScrW() end)
 	hook.Add("OnRoundCreative", "prog_bar_onroundend_hook", function() disable_bar() end)
 	hook.Add("OnRoundEnd", "prog_bar_onroundend_hook", function() disable_bar() end)
-	hook.Add("OnRoundPreparation", "prog_bar_onroundprep_hook", function() disable_bar() end)
+	hook.Add("OnRoundPreparation", "prog_bar_onroundprep_hook", function(round)
+		endless = (round or 0) < 0
+		
+		disable_bar()
+	end)
+	
 	hook.Add("OnRoundStart", "prog_bar_onroundstart_hook", function()
 		progress_current_percent = 0
 		progress_percent = 0
@@ -269,7 +274,6 @@ elseif CLIENT then
 	end)
 	
 	net.Receive("update_prog_bar_max", function()
-		endless = zombies_max < 0
 		zombies_max = net.ReadUInt(16)
 		zombies_killed_text = "zombies killed  0 / " .. zombies_max
 	end)
