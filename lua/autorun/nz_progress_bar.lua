@@ -1,24 +1,16 @@
 if SERVER then
-	--[[
-	for those who want to know how I write my code, I seperate functions and declerations
-	I also keep multiple oneliners close to each other, and I try to group my declerations
-	by their purpose/usage, then order them alphabetically. That's the gist, the rest is
-	obvious such as snake_case and (no parenthesis padding)
-	]]
-	
 	resource.AddSingleFile("materials/bar/bloodline_bar.png")
 	resource.AddSingleFile("materials/bar/bloodline_bar_back.png")
 	util.AddNetworkString("update_prog_bar_killed")
 	util.AddNetworkString("update_prog_bar_max")
 	
-	local update_rate = 0.25
+	local nz_progbar_update_rate = CreateConVar("nz_progbar_update_rate", "0.25", bit.bor(FCVAR_NOTIFY, FCVAR_NEVER_AS_STRING, FORCE_NUMBER), "Delay between updates to the client. Lower values, mean more frequent but higher cost.", 0.1, 10.0)
 	
+	local update_rate = nz_progbar_update_rate:GetFloat()
 	local zombies_killed = 0
 	local zombies_killed_cache = 0
 	
-	CreateConVar("nz_progbar_update_rate", "0.25", bit.bor(FCVAR_NOTIFY, FCVAR_NEVER_AS_STRING, FORCE_NUMBER), "Delay between updates to the client. Lower values, mean more frequent but higher cost.", 0.1, 10.0)
-	
-	cvars.AddChangeCallback("nz_progbar_update_rate", function(name, old_value, new_value) update_rate = tonumber(new_value) or 0.25 end)
+	cvars.AddChangeCallback("nz_progbar_update_rate", function(name, old_value, new_value) update_rate = nz_progbar_update_rate:GetFloat() or 0.25 end)
 	
 	hook.Add("OnRoundCreative", "prog_bar_onroundend_hook", function() timer.Remove("update_client_prog_bar") end)
 	hook.Add("OnRoundEnd", "prog_bar_onroundend_hook", function() timer.Remove("update_client_prog_bar") end)
@@ -44,28 +36,33 @@ if SERVER then
 		end)
 	end)
 	
-	hook.Add("PlayerInitialSpawn", "prog_bar_first_spawn_hook", function(player)
+	hook.Add("PlayerFullLoad", "nz_level_system_full_load_hook", function(ply)
 		local zombies_max = nzRound:GetZombiesMax()
 		
 		if zombies_max and zombies_max > 1 then
-			timer.Simple(5, function()
-				net.Start("update_prog_bar_max")
-				net.WriteUInt(nzRound:GetZombiesMax(), 32)
-				net.Send(player)
-			end)
+			net.Start("update_prog_bar_max")
+			net.WriteUInt(nzRound:GetZombiesMax(), 32)
+			net.Send(ply)
 		end
+	end)
+	
+	hook.Add("PlayerInitialSpawn", "prog_bar_first_spawn_hook", function(ply)
+		--we can't send net messages through PlayerInitialSpawn hook, as the message doesn't always reach the client
+		--so we create a new hook named PlayerFullLoad
+		hook.Add("SetupMove", ply, function(self, ply, _, cmd)
+			--and yes, we are using the player as the identifier
+			if self == ply and not cmd:IsForced() then
+				hook.Run("PlayerFullLoad", self)
+				hook.Remove("SetupMove", self)
+			end
+		end)
 	end)
 elseif CLIENT then
 	local bar_mat = Material("bar/bloodline_bar.png")
 	local bar_mat_bg = Material("bar/bloodline_bar_back.png")
 	
 	local endless = false
-	local cvars_bar_enabled = 1
-	local cvars_bar_text_enabled = 1
-	local cvars_bar_text_y_pos = 5
-	local cvars_bar_y = 5
 	local prog_bar_active = false
-	local scale = 0.5
 	local scr_h =  ScrH()
 	local scr_w = ScrW()
 	local zombies_killed = 0
@@ -73,13 +70,13 @@ elseif CLIENT then
 	local zombies_killed_text_font = ""
 	local zombies_max = 1
 	
-	local pb_h = 0
+	local pb_h
 	local pb_stencil_w = 0
-	local pb_w = 0
-	local pb_x = 0
-	local pb_text_x = 0
-	local pb_text_y = 0
-	local pb_y = 0
+	local pb_w
+	local pb_x
+	local pb_text_x
+	local pb_text_y
+	local pb_y
 	local pb_y_current_percent = 0
 	local pb_y_current_percent_inc = engine.TickInterval()
 	local pb_y_percent = 0
@@ -87,13 +84,21 @@ elseif CLIENT then
 	local progress_current_percent_inc = engine.TickInterval()
 	local progress_percent = 0
 	
-	CryotheumDynamicFontData = CryotheumDynamicFontData or {}
+	--convars
+	local nz_progbar_enabled = CreateClientConVar("nz_progbar_enabled", "1", true, false, "Should the bar be renderd?", 0, 1)
+	local nz_progbar_scale = CreateClientConVar("nz_progbar_scale", "0.5", true, false, "Changes the size of the bar.", 0.05, 20)
+	local nz_progbar_text_enabled = CreateClientConVar("nz_progbar_text_enabled", "1", true, false, "Should the text on the progress bar be renderd?", 0, 1)
+	local nz_progbar_y_pos = CreateClientConVar("nz_progbar_y_pos", "5", true, false, "The y position of the progress bar from the top of the screen.", 0, 65536)
+	local nz_progbar_text_y_pos = CreateClientConVar("nz_progbar_text_y_pos", "5", true, false, "The y position offset for the text, it is parented to the progress bar.", -65536, 65536)
 	
-	CreateClientConVar("nz_progbar_enabled", "1", true, false, "Should the bar be renderd?", 0, 1)
-	CreateClientConVar("nz_progbar_scale", "0.5", true, false, "Changes the size of the bar.", 0.05, 20)
-	CreateClientConVar("nz_progbar_text_enabled", "1", true, false, "Should the text on the progress bar be renderd?", 0, 1)
-	CreateClientConVar("nz_progbar_y_pos", "5", true, false, "The y position of the progress bar from the top of the screen.", 0, 65536)
-	CreateClientConVar("nz_progbar_text_y_pos", "5", true, false, "The y position offset for the text, it is parented to the progress bar.", -65536, 65536)
+	--cached
+	local cvars_bar_enabled = nz_progbar_enabled:GetBool()
+	local cvars_bar_text_enabled = nz_progbar_text_enabled:GetBool()
+	local cvars_bar_text_y_pos = nz_progbar_text_y_pos:GetFloat()
+	local cvars_bar_y = nz_progbar_y_pos:GetFloat()
+	local scale = nz_progbar_scale:GetFloat()
+	
+	CryotheumDynamicFontData = CryotheumDynamicFontData or {}
 	
 	local function calc_vars()
 		pb_w = scale * 930
@@ -140,7 +145,6 @@ elseif CLIENT then
 	
 	set_font(22, 300)
 	
-	--to keep the speed of the bar consistent
 	local function calculate()
 		--for the red part
 		progress_current_percent = progress_current_percent < progress_percent and math.min(progress_current_percent + progress_current_percent_inc, progress_percent) or math.max(progress_current_percent - progress_current_percent_inc, progress_percent)
@@ -158,8 +162,6 @@ elseif CLIENT then
 			hook.Remove("Tick", "prog_bar_tick_hook")
 		end
 	end
-	
-	--local cached_color_white = color_white
 	
 	--caching functions locally so we don't have to keep looking them up in _G
 	local fl_draw_DrawText = draw.DrawText
@@ -222,31 +224,19 @@ elseif CLIENT then
 		end
 	end
 	
-	cvars.AddChangeCallback("nz_progbar_enabled", function(name, old_value, new_value)
-		cvars_bar_enabled = math.Round(new_value)
-		
-		if cvars_bar_enabled ~= 0 then enable_bar() else disable_bar() end
-	end)
+	cvars.AddChangeCallback("nz_progbar_enabled", function(name, old_value, new_value) cvars_bar_enabled = nz_progbar_enabled:GetBool() end)
+	cvars.AddChangeCallback("nz_progbar_text_enabled", function(name, old_value, new_value) cvars_bar_text_enabled = nz_progbar_text_enabled:GetBool() end)
+	cvars.AddChangeCallback("nz_progbar_y_pos", function(name, old_value, new_value) cvars_bar_y = nz_progbar_y_pos:GetFloat() end)
 	
 	cvars.AddChangeCallback("nz_progbar_scale", function(name, old_value, new_value)
-		scale = new_value
+		scale = nz_progbar_scale:GetFloat()
 		
 		calc_vars()
 		set_font(44 * scale, 300)
 	end)
 	
-	cvars.AddChangeCallback("nz_progbar_text_enabled", function(name, old_value, new_value)
-		cvars_bar_text_enabled = math.Round(new_value)
-		--
-	end)
-	
-	cvars.AddChangeCallback("nz_progbar_y_pos", function(name, old_value, new_value)
-		cvars_bar_y = new_value
-		--
-	end)
-	
 	cvars.AddChangeCallback("nz_progbar_text_y_pos", function(name, old_value, new_value)
-		cvars_bar_text_y_pos = new_value
+		cvars_bar_text_y_pos = nz_progbar_text_y_pos:GetFloat()
 		
 		calc_vars()
 	end)
@@ -255,7 +245,7 @@ elseif CLIENT then
 	hook.Add("OnRoundCreative", "prog_bar_onroundend_hook", function() disable_bar() end)
 	hook.Add("OnRoundEnd", "prog_bar_onroundend_hook", function() disable_bar() end)
 	hook.Add("OnRoundPreparation", "prog_bar_onroundprep_hook", function(round)
-		endless = (round or 0) < 0
+		endless = (round or 0) < 0 --todo: fix this
 		
 		disable_bar()
 	end)
