@@ -11,6 +11,8 @@
 		"*.zip",
 		".git*",
 		"license",
-		"readme.md"
+		"readme.md",
+		"LICENSE",
+		"README.md"
 	]
 }
