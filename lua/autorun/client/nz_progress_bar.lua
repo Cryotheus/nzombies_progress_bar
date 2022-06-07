@@ -134,15 +134,15 @@ local function enable_bar()
 end
 
 local function register_font(size, weight)
-	if CryotheumDynamicFontData[size] then
-		if CryotheumDynamicFontData[size][weight] then return
+	if NZProgressBarDynamicFontData[size] then
+		if NZProgressBarDynamicFontData[size][weight] then return
 		else
-			CryotheumDynamicFontData[size][weight] = true
+			NZProgressBarDynamicFontData[size][weight] = true
 			
 			create_font(size, weight)
 		end
 	else
-		CryotheumDynamicFontData[size] = {[weight] = true}
+		NZProgressBarDynamicFontData[size] = {[weight] = true}
 		
 		create_font(size, weight)
 	end
