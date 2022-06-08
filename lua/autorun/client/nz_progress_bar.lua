@@ -92,6 +92,15 @@ local function calculate()
 	end
 end
 
+local function create_font(size, weight)
+	surface.CreateFont("pbgenfont" .. size .. "." .. weight, {
+		font = "DK Umbilical Noose",
+		size = size,
+		weight = weight,
+		antialias = true,
+	})
+end
+
 local function disable_bar() pb_y_percent = 0 end
 
 local function draw_bar()
