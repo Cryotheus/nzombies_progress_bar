@@ -165,21 +165,21 @@ end
 
 --post function setup
 calc_vars()
-set_font(22, 300)
+set_font(44 * scale, 300)
 
 --cvars
-cvars.AddChangeCallback("nz_progbar_enabled", function(name, old_value, new_value) cvars_bar_enabled = nz_progbar_enabled:GetBool() end)
-cvars.AddChangeCallback("nz_progbar_text_enabled", function(name, old_value, new_value) cvars_bar_text_enabled = nz_progbar_text_enabled:GetBool() end)
-cvars.AddChangeCallback("nz_progbar_y_pos", function(name, old_value, new_value) cvars_bar_y = nz_progbar_y_pos:GetFloat() end)
+cvars.AddChangeCallback("nz_progbar_enabled", function() cvars_bar_enabled = nz_progbar_enabled:GetBool() end)
+cvars.AddChangeCallback("nz_progbar_text_enabled", function() cvars_bar_text_enabled = nz_progbar_text_enabled:GetBool() end)
+cvars.AddChangeCallback("nz_progbar_y_pos", function() cvars_bar_y = nz_progbar_y_pos:GetFloat() end)
 
-cvars.AddChangeCallback("nz_progbar_scale", function(name, old_value, new_value)
+cvars.AddChangeCallback("nz_progbar_scale", function()
 	scale = nz_progbar_scale:GetFloat()
 	
 	calc_vars()
 	set_font(44 * scale, 300)
 end)
 
-cvars.AddChangeCallback("nz_progbar_text_y_pos", function(name, old_value, new_value)
+cvars.AddChangeCallback("nz_progbar_text_y_pos", function()
 	cvars_bar_text_y_pos = nz_progbar_text_y_pos:GetFloat()
 	
 	calc_vars()

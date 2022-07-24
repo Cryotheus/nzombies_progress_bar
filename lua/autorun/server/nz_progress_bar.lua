@@ -42,11 +42,13 @@ hook.Add("OnRoundStart", "NZProgressBar", function()
 	end)
 end)
 
+hook.Add("PlayerDisconnected", "NZProgressBar", function(ply) player_sync_cooldowns[ply] = nil end)
+
 --cvars
-cvars.AddChangeCallback("nz_progbar_update_rate", function(name, old_value, new_value) update_rate = nz_progbar_update_rate:GetFloat() or 0.25 end)
+cvars.AddChangeCallback("nz_progbar_update_rate", function() update_rate = nz_progbar_update_rate:GetFloat() or 0.25 end)
 
 --net
-net.Receive("nz_progress_bar", function(ply, length)
+net.Receive("nz_progress_bar", function(_length, ply)
 	local cooldown = player_sync_cooldowns[ply]
 	local cur_time = CurTime()
 	
